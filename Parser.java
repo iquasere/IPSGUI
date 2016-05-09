@@ -190,21 +190,63 @@ public class Parser {
 					if (entryNameMatcher.find()) {domain.put("Entry_name", entryNameMatcher.group(1));}
 					
 					Matcher typeMatcher = typePattern.matcher(file.get(i));
-					if (typeMatcher.find()) {domain.put("Entry_type", entryNameMatcher.group(1));}					
-				
+					if (typeMatcher.find()) {domain.put("Entry_type", entryNameMatcher.group(1));}
+					
 					i++;
+					
+					List<List<String>> allXref = new ArrayList<List<String>>();
+					
+					//entries with Xrefs end in </entry>, but those that lack xRefs end at the start of the models
+					while(!(file.get(i).trim().startsWith("</entry>")) && !(file.get(i).trim().startsWith("<models>")) && i < file.size()) {
+						 Pattern xrefPattern = Pattern.compile("\"(.+?)\"");
+						 Matcher xrefMatcher = xrefPattern.matcher(file.get(i));
+						 
+						 List<String> xref = new ArrayList<String>();
+						 
+						 while (xrefMatcher.find()) {
+
+							 xref.add(xrefMatcher.group().replace("\"", ""));
+						 }
+						 
+						 allXref.add(xref);
+							
+						 i++;
+					}
+					
+					if (allXref.size() > 0) {
+						
+						domain.put("Xrefs", allXref);
+						
+						i++;
+					}
 				}
 				
-				i++;
-				
-				int f = 1;
-				
-				while(f > 0 && i < file.size()) {
+				if (file.get(i).trim().startsWith("<models>")) {
 					
-					Matcher modelAcMatcher = acPattern.matcher(file.get(i));
-					if 
+					System.out.println(file.get(i+1));
 					
-					if (file.get(i).trim().startsWith("</models>")) {f--;}
+					i++;
+				
+					List<List<String>> allModels = new ArrayList<List<String>>();
+					
+					while(!(file.get(i).trim().startsWith("</models>")) && i < file.size()) {
+						 Pattern modelPattern = Pattern.compile("\"(.+?)\"");
+						 Matcher modelMatcher = modelPattern.matcher(file.get(i));
+						 
+						 List<String> Model = new ArrayList<String>();
+						 
+						 while (modelMatcher.find()) {
+
+							 Model.add(modelMatcher.group().replace("\"", ""));
+						 }
+						 
+						 allModels.add(Model);
+							
+						 i++;
+					}
+					
+					domain.put("Models", allModels);
+					
 				}
 				
 				if (file.get(i).trim().startsWith("<signature-library-release")) {
@@ -219,24 +261,23 @@ public class Parser {
 				}
 					
 				i++;
-					
-				}
-				
-				System.out.println(domain);
 				
 				domains.add(domain);
 				
 			}
-			
-			
-		}				
+		}	
 		
 		return domains;	
 	}
 	
 	public static void main(String[] args) throws IOException{
 		
-		System.out.println(get_xml_information());
+		for (HashMap<String, Object>domain:get_xml_information()){
+			System.out.println(domain.containsKey("Xrefs"));
+			System.out.println(domain.get("Models"));
+		}
+		
+//		System.out.println(get_xml_information());
 		
 	}
 }
