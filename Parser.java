@@ -249,21 +249,25 @@ public class Parser {
 					
 				}
 				
-				if (file.get(i).trim().startsWith("<signature-library-release")) {
-					
-					Pattern libraryPattern = Pattern.compile("library=\"(.+?)\"");
-					Matcher libraryMatcher = libraryPattern.matcher(file.get(i));
-					if (libraryMatcher.find()){domain.put("Library",libraryMatcher.group(1));}
-					
-					Pattern versionPattern = Pattern.compile("version=\"(.+?)\"");
-					Matcher versionMatcher = versionPattern.matcher(file.get(i));
-					if (versionMatcher.find()){domain.put("Library_version",versionMatcher.group(1));}
-				}
-					
-				i++;
+				Pattern libraryPattern = Pattern.compile("library=\"(.+?)\"");
+				Matcher libraryMatcher = libraryPattern.matcher(file.get(i));
+				if (libraryMatcher.find()){domain.put("Library",libraryMatcher.group(1));}
 				
-				domains.add(domain);
+				Pattern versionPattern = Pattern.compile("version=\"(.+?)\"");
+				Matcher versionMatcher = versionPattern.matcher(file.get(i));
+				if (versionMatcher.find()){domain.put("Library_version",versionMatcher.group(1));}
+					
+				i += 3;
 				
+				Pattern startPattern = Pattern.compile("start=\"(.+?)\"");
+				Matcher startMatcher = startPattern.matcher(file.get(i));
+				if (startMatcher.find()){domain.put("Start",startMatcher.group(1));}
+				
+				Pattern endPattern = Pattern.compile("end=\"(.+?)\"");
+				Matcher endMatcher = endPattern.matcher(file.get(i));
+				if (endMatcher.find()){domain.put("End",endMatcher.group(1));}
+				
+				domains.add(domain);		
 			}
 		}	
 		
