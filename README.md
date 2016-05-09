@@ -1,1 +1,1 @@
-# InterProScanGUI
+# IPSGUI
