@@ -145,6 +145,20 @@ public class Parser {
 		Pattern matchPattern = Pattern.compile("<([^/]+)-match");
 		Pattern descPattern = Pattern.compile("desc=\"(.+?)\"");
 		Pattern typePattern = Pattern.compile("type=\"(.+?)\"");
+		Pattern evaluePattern = Pattern.compile("evalue=\"(.+?)\"");
+		Pattern scorePattern = Pattern.compile("score=\"(.+?)\"");
+		Pattern familyNamePattern = Pattern.compile("familyName=\"(.+?)\"");
+		Pattern acPattern = Pattern.compile("ac=\"(.+?)\"");
+		Pattern namePattern = Pattern.compile("name=\"(.+?)\"");
+		Pattern xrefPattern = Pattern.compile("\"(.+?)\"");
+		Pattern modelPattern = Pattern.compile("\"(.+?)\"");
+		Pattern libraryPattern = Pattern.compile("library=\"(.+?)\"");
+		Pattern versionPattern = Pattern.compile("version=\"(.+?)\"");
+		Pattern hmmStartPattern = Pattern.compile("hmm-start=\"(.+?)\"");
+		Pattern hmmEndPattern = Pattern.compile("hmm-end=\"(.+?)\"");
+		Pattern lengthPattern = Pattern.compile("hmm-length=\"(.+?)\"");
+		Pattern startPattern = Pattern.compile("start=\"(.+?)\"");
+		Pattern endPattern = Pattern.compile("end=\"(.+?)\"");
 		
 		for (int i = 6; i < file.size(); i++) {
 			
@@ -154,25 +168,20 @@ public class Parser {
 				
 				HashMap<String,Object> domain = new HashMap<String,Object>();
 				
-				Pattern evaluePattern = Pattern.compile("evalue=\"(.+?)\"");
 				Matcher evalueMatcher = evaluePattern.matcher(file.get(i));
-				if (evalueMatcher.find()){domain.put("E-value",evalueMatcher.group(1));}
+				if (evalueMatcher.find()){domain.put("E-value",Float.parseFloat(evalueMatcher.group(1)));}
 				
-				Pattern scorePattern = Pattern.compile("score=\"(.+?)\"");
 				Matcher scoreMatcher = scorePattern.matcher(file.get(i));
-				if (scoreMatcher.find()){domain.put("Score",scoreMatcher.group(1));}
+				if (scoreMatcher.find()){domain.put("Score",Float.parseFloat(scoreMatcher.group(1)));}
 				
-				Pattern familyNamePattern = Pattern.compile("familyName=\"(.+?)\"");
 				Matcher familyNameMatcher = familyNamePattern.matcher(file.get(i));
 				if (familyNameMatcher.find()){domain.put("Family_Name",familyNameMatcher.group(1));}
 				
 				i++;
 		
-				Pattern acPattern = Pattern.compile("ac=\"(.+?)\"");
 				Matcher acMatcher = acPattern.matcher(file.get(i));
 				if (acMatcher.find()){domain.put("Signature_accession_number",acMatcher.group(1));}
 				
-				Pattern namePattern = Pattern.compile("name=\"(.+?)\"");
 				Matcher nameMatcher = namePattern.matcher(file.get(i));
 				if (nameMatcher.find()){domain.put("Name",nameMatcher.group(1));}
 				
@@ -198,7 +207,6 @@ public class Parser {
 					
 					//entries with Xrefs end in </entry>, but those that lack xRefs end at the start of the models
 					while(!(file.get(i).trim().startsWith("</entry>")) && !(file.get(i).trim().startsWith("<models>")) && i < file.size()) {
-						 Pattern xrefPattern = Pattern.compile("\"(.+?)\"");
 						 Matcher xrefMatcher = xrefPattern.matcher(file.get(i));
 						 
 						 List<String> xref = new ArrayList<String>();
@@ -223,14 +231,11 @@ public class Parser {
 				
 				if (file.get(i).trim().startsWith("<models>")) {
 					
-					System.out.println(file.get(i+1));
-					
 					i++;
 				
 					List<List<String>> allModels = new ArrayList<List<String>>();
 					
 					while(!(file.get(i).trim().startsWith("</models>")) && i < file.size()) {
-						 Pattern modelPattern = Pattern.compile("\"(.+?)\"");
 						 Matcher modelMatcher = modelPattern.matcher(file.get(i));
 						 
 						 List<String> Model = new ArrayList<String>();
@@ -247,27 +252,54 @@ public class Parser {
 					
 					domain.put("Models", allModels);
 					
+					i++;
+					
 				}
 				
-				Pattern libraryPattern = Pattern.compile("library=\"(.+?)\"");
 				Matcher libraryMatcher = libraryPattern.matcher(file.get(i));
 				if (libraryMatcher.find()){domain.put("Library",libraryMatcher.group(1));}
 				
-				Pattern versionPattern = Pattern.compile("version=\"(.+?)\"");
 				Matcher versionMatcher = versionPattern.matcher(file.get(i));
 				if (versionMatcher.find()){domain.put("Library_version",versionMatcher.group(1));}
 					
 				i += 3;
 				
-				Pattern startPattern = Pattern.compile("start=\"(.+?)\"");
-				Matcher startMatcher = startPattern.matcher(file.get(i));
-				if (startMatcher.find()){domain.put("Start",startMatcher.group(1));}
+				List<HashMap<String,Float>> allLocations = new ArrayList<HashMap<String,Float>>();
+
+				while (!(file.get(i).trim().startsWith("</locations>"))){
+					
+					HashMap<String,Float> location = new HashMap<String,Float>();
+					
+					Matcher locationScoreMatcher = scorePattern.matcher(file.get(i));
+					if (locationScoreMatcher.find()){location.put("Score",Float.parseFloat((locationScoreMatcher.group(1))));}
+					
+					Matcher locationEvalueMatcher = evaluePattern.matcher(file.get(i));
+					if (locationEvalueMatcher.find()){location.put("E-value",Float.parseFloat((locationEvalueMatcher.group(1))));}
+					
+					Matcher hmmStartMatcher = hmmStartPattern.matcher(file.get(i));
+					if (hmmStartMatcher.find()){location.put("HMM-Start",Float.parseFloat((hmmStartMatcher.group(1))));}
+					
+					Matcher hmmEndMatcher = hmmEndPattern.matcher(file.get(i));
+					if (hmmEndMatcher.find()){location.put("HMM-End",Float.parseFloat(hmmEndMatcher.group(1)));}
+					
+					Matcher lengthMatcher = lengthPattern.matcher(file.get(i));
+					if (lengthMatcher.find()){location.put("HMM-Length",Float.parseFloat(lengthMatcher.group(1)));}
 				
-				Pattern endPattern = Pattern.compile("end=\"(.+?)\"");
-				Matcher endMatcher = endPattern.matcher(file.get(i));
-				if (endMatcher.find()){domain.put("End",endMatcher.group(1));}
+					Matcher startMatcher = startPattern.matcher(file.get(i));
+					if (startMatcher.find()){location.put("Start",Float.parseFloat(startMatcher.group(1)));}
+					
+					Matcher endMatcher = endPattern.matcher(file.get(i));
+					if (endMatcher.find()){location.put("End",Float.parseFloat(endMatcher.group(1)));}
+					
+					if(location.size()>0) {allLocations.add(location);}
+					
+					i++;
 				
-				domains.add(domain);		
+				}
+				
+				domain.put("Locations", allLocations);
+					
+				domains.add(domain);
 			}
 		}	
 		
@@ -277,11 +309,11 @@ public class Parser {
 	public static void main(String[] args) throws IOException{
 		
 		for (HashMap<String, Object>domain:get_xml_information()){
-			System.out.println(domain.containsKey("Xrefs"));
-			System.out.println(domain.get("Models"));
+			
+//			List<HashMap<String,Float>> Locations = new ArrayList<HashMap<String,Float>> (domain.get("Locations"));
+		
+			
+			System.out.println(domain);
 		}
-		
-//		System.out.println(get_xml_information());
-		
 	}
 }
