@@ -1,6 +1,8 @@
-package interProParser;
+package pt.uminho.sysbio.common.bioapis.externalAPI.interpro;
 
 import java.io.*;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -8,10 +10,65 @@ import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.swing.plaf.synth.SynthSeparatorUI;
+
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+
+import ch.qos.logback.core.net.SyslogOutputStream;
+
 public class Parser {
 	
 	public static String jobID = "iprscan5-R20160424-232342-0215-12126963-pg";
 	public static String directory = "C:\\Users\\João Sequeira\\Documents\\Escola\\Projeto Bioinformática BSIstemas\\interproscan API\\";
+
+	private List<HashMap<String, Object>> xml_information;  
+	private HashMap<String,String> ec2go;
+	
+	
+	public Parser() throws IOException {
+		
+		super();
+		this.xml_information = new ArrayList<HashMap<String, Object>>();
+		this.xml_information = get_xml_information();
+		this.ec2go = new HashMap<String, String>();
+	}
+	
+	@SuppressWarnings("unchecked")
+	private void GetEc2go() throws IOException{
+	
+		URL url = new URL("http://www.geneontology.org/external2go/ec2go");
+		Scanner s = new Scanner(url.openStream());
+		List<String[]>ec2go = new ArrayList<String[]>();
+		while (s.hasNextLine()) {
+			String[]line = s.nextLine().split(" ");
+			ec2go.add(line);
+		}
+		s.close();
+		List<List<String>>GO = new ArrayList<List<String>>();
+		for (HashMap<String,Object>domain:this.xml_information){
+			if (domain.containsKey("Xrefs")){
+				GO = (ArrayList<List<String>>) domain.get("Xrefs");
+				for (List<String>go:GO){
+					int i = 0;
+					boolean Found = false;
+					while(i < ec2go.size()-1 && !Found) {
+						if (ec2go.contains(go.get(2))){
+							domain.put("ECs", ec2go.get(i)[0]);
+							Found = true;
+							System.out.println(domain);
+						}
+						i++;
+						System.out.println(i);
+					}
+				}
+			}
+		}
+	}
 
 	public static ArrayList<String> readFile(String jobID, String extension) throws IOException{
 		
@@ -38,24 +95,27 @@ public class Parser {
 				i += 1;
 				
 				while (!(file.get(i).startsWith(">match$"))){
-				
+					
 					protein_sequence += file.get(i);
-					
 					i += 1;
-					
 				}
 			}
 		}
-		
 		return protein_sequence;	
-		
 	}
 	
-	public static List<HashMap<String, String>> get_gff_information() throws IOException {
+	private static List<HashMap<String, String>> get_gff_information() throws IOException {
 		
 		ArrayList<String> file = readFile(jobID,".gff.txt");
 		
 		List<HashMap<String, String>> domains = new ArrayList<HashMap<String, String>>();
+		
+		Pattern GOPattern = Pattern.compile("Ontology_term=(.+?);");
+		Pattern IDPattern = Pattern.compile("ID=match(.+)_[0-9]+_[0-9]+;");
+		Pattern SDPattern = Pattern.compile("signature_desc=(.+?);");
+		Pattern NamePattern = Pattern.compile("Name=(.+?);");
+		Pattern StatusPattern = Pattern.compile("status=(.+?);");
+		Pattern xrefPattern = Pattern.compile("Dbxref=(.+)");
 
 		for (int i = 0; i < file.size(); i++) {
 			
@@ -74,27 +134,21 @@ public class Parser {
 					domain.put("Strand", parts[6]);
 					domain.put("Phase", parts[7]);					//phase indicates where the feature begins with reference to the reading frame
 					
-					Pattern GOPattern = Pattern.compile("Ontology_term=(.+?);");
 					Matcher GOMatcher = GOPattern.matcher(parts[8]);
 					if (GOMatcher.find()){domain.put("Ontology_term", GOMatcher.group(1));}
 					
-					Pattern IDPattern = Pattern.compile("ID=match(.+)_[0-9]+_[0-9]+;");
 					Matcher IDMatcher = IDPattern.matcher(parts[8]);
 					if(IDMatcher.find()){domain.put("Match_ID", IDMatcher.group(1));}
 					
-					Pattern SDPattern = Pattern.compile("signature_desc=(.+?);");
 					Matcher SDMatcher = SDPattern.matcher(parts[8]);
 					if(SDMatcher.find()){domain.put("Description", SDMatcher.group(1));}
 					
-					Pattern NamePattern = Pattern.compile("Name=(.+?);");
 					Matcher NameMatcher = NamePattern.matcher(parts[8]);
 					if(NameMatcher.find()){domain.put("Name", NameMatcher.group(1));}
 					
-					Pattern StatusPattern = Pattern.compile("status=(.+?);");
 					Matcher StatusMatcher = StatusPattern.matcher(parts[8]);
 					if(StatusMatcher.find()){domain.put("Status", StatusMatcher.group(1));}
 					
-					Pattern xrefPattern = Pattern.compile("Dbxref=(.+)");
 					Matcher xrefMatcher = xrefPattern.matcher(parts[8]);
 					if(xrefMatcher.find()){domain.put("Dbxref", xrefMatcher.group(1));}
 					
@@ -129,14 +183,23 @@ public class Parser {
 						domain.put("Sequence",sequence);
 					}
 				}
-				i--;
+			i--;
 			}
 		}
 		
 		return domains;	
 	}
 	
-	public static List<HashMap<String, Object>> get_xml_information() throws IOException {
+//	private static String find_regex(String regex, String query) {
+//		
+//		Pattern p = Pattern.compile(regex);
+//		Matcher m = p.matcher(query);
+//		
+//		if (m.find()){domain.put("E-value",Float.parseFloat(m.group(1)));}
+//		
+//	}
+	
+	private static List<HashMap<String, Object>> get_xml_information() throws IOException {
 		
 		ArrayList<String> file = readFile(jobID,".xml.xml");
 		
@@ -150,15 +213,9 @@ public class Parser {
 		Pattern familyNamePattern = Pattern.compile("familyName=\"(.+?)\"");
 		Pattern acPattern = Pattern.compile("ac=\"(.+?)\"");
 		Pattern namePattern = Pattern.compile("name=\"(.+?)\"");
-		Pattern xrefPattern = Pattern.compile("\"(.+?)\"");
-		Pattern modelPattern = Pattern.compile("\"(.+?)\"");
+		Pattern universalPattern = Pattern.compile("\"(.+?)\"");
 		Pattern libraryPattern = Pattern.compile("library=\"(.+?)\"");
 		Pattern versionPattern = Pattern.compile("version=\"(.+?)\"");
-		Pattern hmmStartPattern = Pattern.compile("hmm-start=\"(.+?)\"");
-		Pattern hmmEndPattern = Pattern.compile("hmm-end=\"(.+?)\"");
-		Pattern lengthPattern = Pattern.compile("hmm-length=\"(.+?)\"");
-		Pattern startPattern = Pattern.compile("start=\"(.+?)\"");
-		Pattern endPattern = Pattern.compile("end=\"(.+?)\"");
 		
 		for (int i = 6; i < file.size(); i++) {
 			
@@ -206,8 +263,8 @@ public class Parser {
 					List<List<String>> allXref = new ArrayList<List<String>>();
 					
 					//entries with Xrefs end in </entry>, but those that lack xRefs end at the start of the models
-					while(!(file.get(i).trim().startsWith("</entry>")) && !(file.get(i).trim().startsWith("<models>")) && i < file.size()) {
-						 Matcher xrefMatcher = xrefPattern.matcher(file.get(i));
+					while(!(file.get(i).trim().startsWith("</entry>") || file.get(i).trim().startsWith("<models>")) && i < file.size()) {
+						 Matcher xrefMatcher = universalPattern.matcher(file.get(i));
 						 
 						 List<String> xref = new ArrayList<String>();
 						 
@@ -236,13 +293,19 @@ public class Parser {
 					List<List<String>> allModels = new ArrayList<List<String>>();
 					
 					while(!(file.get(i).trim().startsWith("</models>")) && i < file.size()) {
-						 Matcher modelMatcher = modelPattern.matcher(file.get(i));
+						 Matcher modelMatcher = universalPattern.matcher(file.get(i));
 						 
 						 List<String> Model = new ArrayList<String>();
 						 
 						 while (modelMatcher.find()) {
 
 							 Model.add(modelMatcher.group().replace("\"", ""));
+							 
+							 if (Model.size() > 2) {
+								 String t = Model.get(1);				// To permute between name and description, so that name is always 2nd element
+								 Model.add(1, Model.get(2));
+								 Model.add(2, t);
+							 }
 						 }
 						 
 						 allModels.add(Model);
@@ -264,34 +327,91 @@ public class Parser {
 					
 				i += 3;
 				
-				List<HashMap<String,Float>> allLocations = new ArrayList<HashMap<String,Float>>();
-
+				List<List<Float>> allLocations = new ArrayList<List<Float>>();
+				
 				while (!(file.get(i).trim().startsWith("</locations>"))){
 					
-					HashMap<String,Float> location = new HashMap<String,Float>();
+					 Matcher locationMatcher = universalPattern.matcher(file.get(i));
 					
-					Matcher locationScoreMatcher = scorePattern.matcher(file.get(i));
-					if (locationScoreMatcher.find()){location.put("Score",Float.parseFloat((locationScoreMatcher.group(1))));}
+					 List<Float> Location = new ArrayList<Float>();
+					 
+					 while (locationMatcher.find()) {
+
+						String data = locationMatcher.group().replace("\"", "");
+						 
+						if (!(data.equals("NONE"))){Location.add(Float.parseFloat(data));}
+						 
+						if (Location.size() > 2) {
+							 
+							if (Location.size() == 3) {
+								Float t = Location.get(0);				// To put score from 1st to last position
+								Location.add(0, Location.get(1));
+								Location.add(1, Location.get(2));
+								Location.add(2, t);
+							} else if(Location.size() == 7) {
+								Float score = Location.get(0);
+								Float start = Location.get(5);
+								Float end = Location.get(6);
+								Float hmmstart = Location.get(2);
+								Float hmmend = Location.get(3);
+								Float hmmlength = Location.get(4);
+								Float evalue = Location.get(1);
+								Location.add(0,start);
+								Location.add(1,end);
+								Location.add(2,score);
+								Location.add(3,evalue);
+								Location.add(4,hmmstart);
+								Location.add(5,hmmend);
+								Location.add(6,hmmlength);
+							} else if(Location.size() == 9) {
+								Float score = Location.get(2);
+								Float start = Location.get(7);
+								Float end = Location.get(8);
+								Float estart = Location.get(0);
+								Float eend = Location.get(1);
+								Float hmmstart = Location.get(4);
+								Float hmmend = Location.get(5);
+								Float hmmlength = Location.get(6);
+								Float evalue = Location.get(3);
+								Location.add(0,start);
+								Location.add(1,end);
+								Location.add(2,score);
+								Location.add(3,evalue);
+								Location.add(4,hmmstart);
+								Location.add(5,hmmend);
+								Location.add(6,hmmlength);
+								Location.add(7,estart);
+								Location.add(8,eend);
+							}
+						}
+					}
+					 
+					allLocations.add(Location);							//Location information: Start, End, Score, E-value, HMM-Start, HMM-End, HMM-Length, Env-Start, Env-End
 					
-					Matcher locationEvalueMatcher = evaluePattern.matcher(file.get(i));
-					if (locationEvalueMatcher.find()){location.put("E-value",Float.parseFloat((locationEvalueMatcher.group(1))));}
-					
-					Matcher hmmStartMatcher = hmmStartPattern.matcher(file.get(i));
-					if (hmmStartMatcher.find()){location.put("HMM-Start",Float.parseFloat((hmmStartMatcher.group(1))));}
-					
-					Matcher hmmEndMatcher = hmmEndPattern.matcher(file.get(i));
-					if (hmmEndMatcher.find()){location.put("HMM-End",Float.parseFloat(hmmEndMatcher.group(1)));}
-					
-					Matcher lengthMatcher = lengthPattern.matcher(file.get(i));
-					if (lengthMatcher.find()){location.put("HMM-Length",Float.parseFloat(lengthMatcher.group(1)));}
-				
-					Matcher startMatcher = startPattern.matcher(file.get(i));
-					if (startMatcher.find()){location.put("Start",Float.parseFloat(startMatcher.group(1)));}
-					
-					Matcher endMatcher = endPattern.matcher(file.get(i));
-					if (endMatcher.find()){location.put("End",Float.parseFloat(endMatcher.group(1)));}
-					
-					if(location.size()>0) {allLocations.add(location);}
+//					HashMap<String,Float> location = new HashMap<String,Float>();
+//					
+//					Matcher locationScoreMatcher = scorePattern.matcher(file.get(i));
+//					if (locationScoreMatcher.find()){location.put("Score",Float.parseFloat((locationScoreMatcher.group(1))));}
+//					
+//					Matcher locationEvalueMatcher = evaluePattern.matcher(file.get(i));
+//					if (locationEvalueMatcher.find()){location.put("E-value",Float.parseFloat((locationEvalueMatcher.group(1))));}
+//					
+//					Matcher hmmStartMatcher = hmmStartPattern.matcher(file.get(i));
+//					if (hmmStartMatcher.find()){location.put("HMM-Start",Float.parseFloat((hmmStartMatcher.group(1))));}
+//					
+//					Matcher hmmEndMatcher = hmmEndPattern.matcher(file.get(i));
+//					if (hmmEndMatcher.find()){location.put("HMM-End",Float.parseFloat(hmmEndMatcher.group(1)));}
+//					
+//					Matcher lengthMatcher = lengthPattern.matcher(file.get(i));
+//					if (lengthMatcher.find()){location.put("HMM-Length",Float.parseFloat(lengthMatcher.group(1)));}
+//				
+//					Matcher startMatcher = startPattern.matcher(file.get(i));
+//					if (startMatcher.find()){location.put("Start",Float.parseFloat(startMatcher.group(1)));}
+//					
+//					Matcher endMatcher = endPattern.matcher(file.get(i));
+//					if (endMatcher.find()){location.put("End",Float.parseFloat(endMatcher.group(1)));}
+//					
+//					if(location.size()>0) {allLocations.add(location);}
 					
 					i++;
 				
@@ -306,14 +426,20 @@ public class Parser {
 		return domains;	
 	}
 	
+	@SuppressWarnings("unchecked")
 	public static void main(String[] args) throws IOException{
 		
-		for (HashMap<String, Object>domain:get_xml_information()){
-			
-//			List<HashMap<String,Float>> Locations = new ArrayList<HashMap<String,Float>> (domain.get("Locations"));
+//		for (HashMap<String, Object>domain:get_xml_information()){
+//			
+////			List<HashMap<String,Float>> Locations = new ArrayList<HashMap<String,Float>> (domain.get("Locations"));
+//			
+////			ArrayList<List<String>>Models = new ArrayList<List<String>>(domain.get("Models"));
+//			
+//			System.out.println(domain);
+//		}
 		
-			
-			System.out.println(domain);
-		}
+		Parser parser = new Parser();
+		parser.GetEc2go();
+		System.out.println(parser.xml_information);
 	}
 }
