@@ -4,6 +4,7 @@ import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Scanner;
@@ -26,48 +27,29 @@ public class Parser {
 	public static String jobID = "iprscan5-R20160424-232342-0215-12126963-pg";
 	public static String directory = "C:\\Users\\João Sequeira\\Documents\\Escola\\Projeto Bioinformática BSIstemas\\interproscan API\\";
 
-	private List<HashMap<String, Object>> xml_information;  
-	private HashMap<String,String> ec2go;
-	
+	private List<HashMap<String, Object>> xml_information;
 	
 	public Parser() throws IOException {
 		
 		super();
 		this.xml_information = new ArrayList<HashMap<String, Object>>();
 		this.xml_information = get_xml_information();
-		this.ec2go = new HashMap<String, String>();
 	}
 	
-	@SuppressWarnings("unchecked")
-	private void GetEc2go() throws IOException{
+	private static HashMap<String,String> GetEc2go() throws IOException{
 	
 		URL url = new URL("http://www.geneontology.org/external2go/ec2go");
 		Scanner s = new Scanner(url.openStream());
-		List<String[]>ec2go = new ArrayList<String[]>();
+		HashMap<String,String>ec2go = new HashMap<String,String>();
 		while (s.hasNextLine()) {
-			String[]line = s.nextLine().split(" ");
-			ec2go.add(line);
-		}
-		s.close();
-		List<List<String>>GO = new ArrayList<List<String>>();
-		for (HashMap<String,Object>domain:this.xml_information){
-			if (domain.containsKey("Xrefs")){
-				GO = (ArrayList<List<String>>) domain.get("Xrefs");
-				for (List<String>go:GO){
-					int i = 0;
-					boolean Found = false;
-					while(i < ec2go.size()-1 && !Found) {
-						if (ec2go.contains(go.get(2))){
-							domain.put("ECs", ec2go.get(i)[0]);
-							Found = true;
-							System.out.println(domain);
-						}
-						i++;
-						System.out.println(i);
-					}
-				}
+			List<String> entry = Arrays.asList(s.nextLine().split(" "));
+			if (!(entry.get(0).equals("!"))){
+				ec2go.put(entry.get(entry.size()-1),entry.get(0));
 			}
 		}
+		s.close();
+		
+		return ec2go;
 	}
 
 	public static ArrayList<String> readFile(String jobID, String extension) throws IOException{
@@ -183,6 +165,7 @@ public class Parser {
 						domain.put("Sequence",sequence);
 					}
 				}
+				
 			i--;
 			}
 		}
@@ -199,8 +182,10 @@ public class Parser {
 //		
 //	}
 	
+	@SuppressWarnings("unchecked")
 	private static List<HashMap<String, Object>> get_xml_information() throws IOException {
 		
+		HashMap<String,String> ec2go = GetEc2go();		
 		ArrayList<String> file = readFile(jobID,".xml.xml");
 		
 		List<HashMap<String, Object>> domains = new ArrayList<HashMap<String, Object>>();
@@ -417,6 +402,18 @@ public class Parser {
 				
 				}
 				
+				List<String> ecs = new ArrayList<String>();
+				
+				if (domain.containsKey("Xrefs")){
+					List<List<String>> xrefs = (List<List<String>>) domain.get("Xrefs");
+					for (List<String>xref:xrefs){
+						if (ec2go.containsKey(xref.get(2))){
+							ecs.add(ec2go.get(xref.get(2)));
+						}
+				domain.put("ECs",ecs);
+					}
+				}
+				
 				domain.put("Locations", allLocations);
 					
 				domains.add(domain);
@@ -425,8 +422,7 @@ public class Parser {
 		
 		return domains;	
 	}
-	
-	@SuppressWarnings("unchecked")
+
 	public static void main(String[] args) throws IOException{
 		
 //		for (HashMap<String, Object>domain:get_xml_information()){
@@ -439,7 +435,6 @@ public class Parser {
 //		}
 		
 		Parser parser = new Parser();
-		parser.GetEc2go();
-		System.out.println(parser.xml_information);
+		for (HashMap<String,Object>domain : parser.xml_information){System.out.println(domain.get("ECs"));}
 	}
 }
